@@ -7,4 +7,6 @@ SimpylCellCounter - An Automated Solution for Quantifying Cfos Cells
 
 ### For specific instructions on how to navigate the code for SCC, open the PowerPoint "How to Use SCC.pptx"
 
+If you are interested in recreating aspects of SCC, go to the folder "recreateFunctions" to find out more
+
 ##### Contact: aneesh.s.bal@gmail.com
