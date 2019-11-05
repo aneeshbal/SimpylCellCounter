@@ -4,4 +4,4 @@
 3. To retrain neural network, use "CNN_for_Overlap.ipynb"
 
 
-#### **do NOT move the two csv files "tuy.csv" and "tuy2.csv"**
+#### *do NOT move the two csv files "tuy.csv" and "tuy2.csv"*
