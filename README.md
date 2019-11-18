@@ -10,6 +10,6 @@ SimpylCellCounter - An Automated Solution for Quantifying Cfos Cells
 If you are interested in recreating aspects of SCC, go to the folder "recreationFunctions" to find out more.
 
 
-#### News: A GUI for SCC will be released soon!
+#### News: A GUI for SCC will be built soon!
 
 ##### Contact: aneesh.s.bal@gmail.com
