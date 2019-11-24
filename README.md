@@ -1,5 +1,5 @@
 # SimpylCellCounter
-SimpylCellCounter - An Automated Solution for Quantifying Cfos Cells
+SimpylCellCounter - An Automated Solution for Quantifying Cfos Cells in Brain Tissue
 
 #### First, you will need to install Python and utilize Jupyter Notebook to use SimpylCellCounter (SCC)...For steps on how to do this, open the PowerPoint "SCC.pptx"
 
