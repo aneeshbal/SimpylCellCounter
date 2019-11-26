@@ -12,4 +12,4 @@ If you are interested in recreating aspects of SCC, go to the folder "recreation
 
 #### News: A GUI for SCC will be built soon!
 
-##### Contact: aneesh.s.bal@gmail.com
+##### Contact: arguell5@msu.edu and aneesh.s.bal@gmail.com
