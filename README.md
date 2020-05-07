@@ -9,7 +9,7 @@ Lastly, SCC requires minimal knowledge of Python and can be run in the easy-to-u
 
 # How to Use SCC
 
-### For the easiest way to use SCC, click [here]('examples')
+### For the easiest way to use SCC, click [here](examples)
 
 #### After installation is complete, download the folder above "source". Do NOT rearrange any of the files in this folder as they are all necessary to ensure proper processing!
 
