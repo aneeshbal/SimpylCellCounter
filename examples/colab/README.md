@@ -35,3 +35,15 @@
 ## (c) Clone SCC into Drive
 #### Run this block to copy the SimpylCellCounter repository into the `My Drive` folder in your drive
 ![](../../icons/Picture5.png)
+<br />
+<br />
+
+## (d) Upload Images into Drive
+#### - navigate to `My Drive` in your Google Drive
+#### - select `New` -> `Folder Upload` and upload your image data
+<br />
+<br />
+
+## (e) Run Main SCC Script
+#### This code block executes `scc`
+![](../../icons/Picture6.png)
