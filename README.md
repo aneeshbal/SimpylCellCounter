@@ -9,10 +9,10 @@ Lastly, SCC requires minimal knowledge of Python and can be run in the easy-to-u
 
 # How to Use SCC
 
-### SCC provides two options for use: 1) use on your local machine or 2) use on Google Colab (recommended)
+#### SCC provides two options for use: 1) use on your local machine or 2) use on Google Colab (recommended)
 
-##### If using 1), click [here](examples/local)
-##### If using 2), click [here](examples/colab)
+If using 1), click [here](examples/local)
+If using 2), click [here](examples/colab)
 
 
 # Contact 
