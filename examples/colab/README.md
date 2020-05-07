@@ -42,8 +42,13 @@
 #### - navigate to `My Drive` in your Google Drive
 #### - select `New` -> `Folder Upload` and upload your image data
 <br />
-<br />
 
 ## (e) Run Main SCC Script
 #### This code block executes `scc`
 ![](../../icons/Picture6.png)
+<br />
+<br />
+
+## (f) Save Output
+#### This code block will save the output of SCC under `My Drive` in your drive with the title `scc_output` followed by the date and time
+![](../../icons/Picture7.png)
