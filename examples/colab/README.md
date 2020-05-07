@@ -6,3 +6,4 @@
 
 # (3) Set Up Colab
 #### First begin by selecting `Runtime` then `Change runtime type`, then under `Hardware accelerator` select `GPU`
+![](../../icons/Picture1.png)
