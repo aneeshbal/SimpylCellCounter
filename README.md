@@ -7,7 +7,9 @@ SCC is also highly-customizable by allowing the user to alter nearly every param
 Lastly, SCC requires minimal knowledge of Python and can be run in the easy-to-use Google Colab interface. The advantage of using SCC on Colab is that no environments need to be set up, and no packages need to be installed manually.
 
 
-# First, you will need to install Python and utilize Jupyter Notebook to use SimpylCellCounter (SCC)...For steps on how to do this, open the PowerPoint "SCC.pptx"
+# How to Use SCC
+
+### For the easiest way to use SCC, go to the folder named `examples`
 
 #### After installation is complete, download the folder above "source". Do NOT rearrange any of the files in this folder as they are all necessary to ensure proper processing!
 
