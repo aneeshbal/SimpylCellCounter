@@ -6,6 +6,8 @@ SCC is also highly-customizable by allowing the user to alter nearly every param
 
 Lastly, SCC requires minimal knowledge of Python and can be run in the easy-to-use Google Colab interface. The advantage of using SCC on Colab is that no environments need to be set up, and no packages need to be installed manually.
 
+To learn more about SCC, read the pre-print here: https://www.biorxiv.org/content/10.1101/2020.02.22.960948v1
+
 
 # How to Use SCC
 
