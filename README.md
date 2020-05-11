@@ -15,7 +15,7 @@ To learn more about SCC, read the pre-print here: https://www.biorxiv.org/conten
 
 If using 1), click [here](examples/local)
 
-If using 2), click [here](examples/colab)
+If using the recommended method 2), click [here](examples/colab)
 
 
 # Contact 
