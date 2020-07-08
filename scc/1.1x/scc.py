@@ -11,7 +11,9 @@ from tensorflow.keras.models import load_model
 
 set_th_value=150; radius=10; circularity_parameter=0.77
 
-def scc(read, set_th_value=150, radius=10, circularity_parameter=0.77):
+def scc(read, model, set_th_value=150, radius=10, circularity_parameter=0.77):
+  if circularity_parameter > 0.79:
+      circularity_parameter = 0.79
   t1 = time.time()
   area_parameter = (3.14*radius**2)/0.95 # do NOT change this formula!
   area_parameter = area_parameter/1.04 # do NOT change this formula!
