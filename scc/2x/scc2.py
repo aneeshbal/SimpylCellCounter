@@ -41,8 +41,8 @@ class LoadingModel:
 		
 	def load_the_model(url):
 		model = load_model(url,
-					   custom_objects={'combine_loss': combine_loss,
-									   'iou_coef': iou_coef})
+					   custom_objects={'combine_loss': LoadingModel.combine_loss,
+									   'iou_coef': LoadingModel.iou_coef})
 		return model
 		
 class ProcessMasks:
