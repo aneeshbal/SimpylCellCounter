@@ -71,6 +71,7 @@ class ProcessMasks:
 		  centersy.append(np.mean(where[1]))
 		  
 		image_to_paste = raw_image.copy()
+		image_to_paste = cv2.resize(image_to_paste, (256, 256))
 		for i,j in zip(centersx,centersy):
 		  cv2.circle(image_to_paste, (int(j), int(i)), 5, (255), 1)
 		  
