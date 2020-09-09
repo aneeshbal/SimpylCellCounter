@@ -54,7 +54,7 @@ class ProcessMasks:
         prediction = model.predict(img)
         return prediction
 		
-	def process_masks(image):
+	def process_masks(image, raw_image):
 		
 		distance = ndi.distance_transform_edt(image)
 		local_maxi = peak_local_max(distance, indices=False, footprint=np.ones((15, 15)),
@@ -69,7 +69,7 @@ class ProcessMasks:
 		  centersx.append(np.mean(where[0]))
 		  centersy.append(np.mean(where[1]))
 		  
-		image_to_paste = image.copy()
+		image_to_paste = raw_image.copy()
 		for i,j in zip(centersx,centersy):
 		  cv2.circle(image_to_paste, (int(j), int(i)), 5, (255), 1)
 		  
