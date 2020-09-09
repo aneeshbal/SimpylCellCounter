@@ -9,8 +9,14 @@ Lastly, SCC requires minimal knowledge of Python and can be run in the easy-to-u
 To learn more about SCC, read the paper here: https://www.nature.com/articles/s41598-020-68138-4
 
 
+# New Updates!
+
+SimpylCellCounter (SCC) 2.0 is available in "testing" mode. 
+
+
 # How to Use SCC
 
+### SCC 1.0 Usage
 #### SCC provides two options for use: 1) use on your local machine or 2) use on Google Colab (recommended)
 
 If using 1), click [here](examples/local)
