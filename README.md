@@ -11,7 +11,7 @@ To learn more about SCC, read the paper here: https://www.nature.com/articles/s4
 
 # New Updates!
 
-SimpylCellCounter (SCC) 2.0 is available in "testing" mode. 
+SimpylCellCounter (SCC) 2.0 is available in "testing" mode. SCC 2.0 introduces a fully deep learning approach to detecting cells, utilizing a U-net/ResNet like neural network architecture trained on ~30 images of fluorescent and brightfield nuclei. At the moment, it is still a work-in-progress, but will be updated frequently. SCC 2.0 was trained using a Keras frontend with a Tensorflow backend... 
 
 
 # How to Use SCC
@@ -19,9 +19,13 @@ SimpylCellCounter (SCC) 2.0 is available in "testing" mode.
 ### SCC 1.0 Usage
 #### SCC provides two options for use: 1) use on your local machine or 2) use on Google Colab (recommended)
 
-If using 1), click [here](examples/local)
+If using 1), click [here](examples/1x/local)
 
-If using the recommended method 2), click [here](examples/colab)
+If using the recommended method 2), click [here](examples/1x/colab)
+
+### SCC 2.0 Usage
+
+If using SCC 2.0, click [here](examples/2x)
 
 
 # Contact 
