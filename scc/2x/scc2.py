@@ -50,7 +50,7 @@ class ProcessMasks:
 	def create_mask(image, model):
 	    img = image.copy()
 	    img = cv2.resize(img, (256, 256))
-	    img = np.reshape(img, (-1, 256, 256, 3))
+	    img = np.reshape(img, (1, 256, 256, 3))
 		prediction = model.predict(img)
 		return prediction
 		
