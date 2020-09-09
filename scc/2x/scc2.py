@@ -73,7 +73,7 @@ class ProcessMasks:
 		for i,j in zip(centersx,centersy):
 		  cv2.circle(image_to_paste, (int(j), int(i)), 5, (255), 1)
 		  
-		return image_to_paste
+		return len(markers), image_to_paste
 		
 		
 		
