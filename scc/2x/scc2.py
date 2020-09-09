@@ -54,7 +54,7 @@ class ProcessMasks:
 		prediction = model.predict(img)
 		return prediction
 		
-	def process_mask(image, mask):
+	def process_mask(image):
 		
 		distance = ndi.distance_transform_edt(image)
 		local_maxi = peak_local_max(distance, indices=False, footprint=np.ones((15, 15)),
