@@ -48,7 +48,10 @@ class LoadingModel:
 class ProcessMasks:
 
 	def create_mask(image, model):
-		prediction = model.predict(image)
+	    img = image.copy()
+	    img = cv2.resize(img, (256, 256))
+	    img = np.reshape(img, (-1, 256, 256, 3))
+		prediction = model.predict(img)
 		return prediction
 		
 	def process_mask(image, mask):
