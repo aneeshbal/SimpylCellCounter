@@ -49,7 +49,7 @@ https://colab.research.google.com/drive/1ZC5GXTEnJ5V3ZIPfcw_uvb9S4eJgbule?usp=sh
 
 ## (e) Run Main SCC Script
 #### This code block executes `scc`
-![](../../../icons/pic1.png)
+![](../../../icons/pic1.PNG)
 <br />
 <br />
 
