@@ -1,3 +1,7 @@
+# To use SCC on Colab, go to the following link:
+https://colab.research.google.com/drive/1ZC5GXTEnJ5V3ZIPfcw_uvb9S4eJgbule?usp=sharing
+
+
 # (1) Create Gmail if you do not have one
 #### Ensure a basic familiarity with Google Drive
 <br />
