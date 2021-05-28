@@ -90,8 +90,9 @@ def scc(read, model, set_th_value=150, radius=10, circularity_parameter=0.77):
       im4 = np.array(mask_subset_resize)
       imgs.append(im4)
     imgs = np.array(imgs).reshape(-1, 100, 100, 1)
-    count_array = model.predict_on_batch(imgs)
-    count_array = [np.argmax(i) for i in count_array]
+    #count_array = model.predict_on_batch(imgs)
+    #count_array = [np.argmax(i) for i in count_array]
+    count_array = [2]
 
     counts = len(df)-len(multCirc)-1+int(sum(np.array(count_array)))
     t2 = time.time()
