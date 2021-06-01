@@ -43,6 +43,9 @@ def scc(read, model, set_th_value=150, radius=10, circularity_parameter=0.77):
   c_function = cv2.medianBlur(img2, 5)
   c_function = cv2.morphologyEx(c_function, cv2.MORPH_CLOSE, np.ones((a,a)), iterations = b)
   d_function = cv2.erode(c_function, np.ones((1,1)), iterations = 1)
+  if len(np.unique(d_function)) == 1:
+      counts = 0
+      return counts
     
   contours, hierarchy = cv2.findContours(d_function, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
