@@ -8,6 +8,7 @@ import math
 
 import tensorflow as tf
 from tensorflow.keras.models import load_model
+print(cv2.__version__)
 
 set_th_value=150; radius=10; circularity_parameter=0.77
 
@@ -39,15 +40,15 @@ def scc(read, model, set_th_value=150, radius=10, circularity_parameter=0.77):
       else:            
           a = 3; b = 1; sig = 'fifth'
           
-  ret, img2 = cv2.threshold(img, th_value, 255, cv2.THRESH_BINARY)
-  c_function = cv2.medianBlur(img2, 5)
-  c_function = cv2.morphologyEx(c_function, cv2.MORPH_CLOSE, np.ones((a,a)), iterations = b)
-  d_function = cv2.erode(c_function, np.ones((1,1)), iterations = 1)
+  ret, img2 = cv2.threshold(img, th_value, 255, cv2.THRESH_BINARY) #https://docs.opencv.org/4.5.2/d7/d4d/tutorial_py_thresholding.html
+  c_function = cv2.medianBlur(img2, 5) #Blurs an image using the median filter (5). https://docs.opencv.org/4.5.2/d4/d86/group__imgproc__filter.html#ga564869aa33e58769b4469101aac458f9
+  c_function = cv2.morphologyEx(c_function, cv2.MORPH_CLOSE, np.ones((a,a)), iterations = b) #https://docs.opencv.org/4.5.2/d4/d86/group__imgproc__filter.html#ga67493776e3ad1a3df63883829375201f
+  d_function = cv2.erode(c_function, np.ones((1,1)), iterations = 1) #https://docs.opencv.org/4.5.2/d4/d86/group__imgproc__filter.html#gaeb1e0c1033e3f6b891a25d0511362aeb
   if len(np.unique(d_function)) == 1:
       counts = 0
       return counts
     
-  contours, hierarchy = cv2.findContours(d_function, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+  contours, hierarchy = cv2.findContours(d_function, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE) #https://docs.opencv.org/4.5.2/d3/dc0/group__imgproc__shape.html#gadf1ad6a0b82947fa1fe3c3d497f260e0
 
   A = []
   df = []
@@ -62,7 +63,7 @@ def scc(read, model, set_th_value=150, radius=10, circularity_parameter=0.77):
 
   for j in range(0, len(contours)):
       M = cv2.moments(contours[j])
-      huMoments = cv2.HuMoments(M)
+      huMoments = cv2.HuMoments(M) #https://docs.opencv.org/4.5.2/d3/dc0/group__imgproc__shape.html#gab001db45c1f1af6cbdbe64df04c4e944
       huMoments = huMoments[0]
       huMoments = -1*math.copysign(1.0, huMoments)*math.log10(abs(huMoments))
       df.append(huMoments)
