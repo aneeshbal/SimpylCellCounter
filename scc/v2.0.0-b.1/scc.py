@@ -161,19 +161,21 @@ for root, dirs, files in os.walk(imageLocation, topdown=False):
 			else:
 				lengths.append(np.mean(lenList))
 
-#Structure csv file and add average values to last row
+#Structure csv file and add average and SEM values to last rows
 if mode == 'debug':
-	save_output = pd.DataFrame({'image':imList,'count':counts,'background':backgrounds,'processThreshold':processThresholds,'cellThreshold':cellThresholds,'length':lengths})
+	csv = pd.DataFrame({'image':imList,'count':counts,'background':backgrounds,'processThreshold':processThresholds,'cellThreshold':cellThresholds,'length':lengths})
 elif mode == 'thresh':
-	save_output = pd.DataFrame({'image':imList,'background':backgrounds,'processThreshold':processThresholds,'cellThreshold':cellThresholds})
+	csv = pd.DataFrame({'image':imList,'background':backgrounds,'processThreshold':processThresholds,'cellThreshold':cellThresholds})
 else:
-	save_output = pd.DataFrame({'image':imList,'count':counts})
-save_output.set_index('image', inplace=True)
-save_output.loc['mean'] = save_output.mean(skipna=True)
+	csv = pd.DataFrame({'image':imList,'count':counts})
+csv.set_index('image', inplace=True)
+outputcsv = csv.copy()
+outputcsv.loc['mean'] = csv.mean(skipna=True)
+outputcsv.loc['sem'] = csv.sem(skipna=True)
 
 #Save csv file
 if csvOutputLocation == '':
 	csvOutputLocation = imageLocation
-save_output.to_csv(csvOutputLocation + '/.' + mode + '_' + threshMethod + '.csv')
+outputcsv.to_csv(csvOutputLocation + '/.' + mode + '_' + threshMethod + '.csv')
 
 print('All Done!')
