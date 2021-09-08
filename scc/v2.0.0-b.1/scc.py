@@ -1,36 +1,76 @@
 from math import pi
+import os
 import cv2
 import numpy as np
 import pandas as pd
-import os
+import configparser
+
+#Create 'config.ini' if it doesn't exist in the current directory
+if os.path.isfile('config.ini') == False:
+	cfgFile = open('config.ini','w')
+	print('No config file detected!\nGenerating config file.', flush=True)
+	lines = [
+		'[GENERAL]'
+		'\nmode = debug'
+		'\n	#(string) - (count, thresh, debug). What mode SCC will operate in.'
+		'\n		#\'count\' will count the cells in each image'
+		'\n		#\'thresh\' will quickly return background and threshold values'
+		'\n		#\'debug\' will output debug images and csv columns.'
+		'\nimageLocation = 10X images'
+		'\n	#(string) - Directory in which the images to be processed are located. Can be full path or path relative to scc.py'
+		'\ncsvOutputLocation = '
+		'\n	#(string) - May be left blank. Directory into which output csv file with cell counts will be placed. If blank, will write to imageLocation. Can be full path or path relative to scc.py'
+		'\nimageOutputLocation = '
+		'\n	#(string) - May be left blank. Directory into which debug outputs will be placed. If blank, will write to directory of the input images. Can be full path or path relative to scc.py'
+		'\nsize = 13'
+		'\n	#(int) - Approximate size (radius) of cells to count.'
+		'\ncircularityThresh = 0.9'
+		'\n	#(float) - How circular a contour has to be before it is counted.'
+		'\nthreshMethod = rel'
+		'\n	#(string) - (abs: absolute, rel: relative, dif: difference). See sections below.'
+		'\n\n#Process Thresholds determine the brightness used to create the first black-and-white image.'
+		'\n#Cell Thresholds determine the brightness below which the average pixel brightness within a contour must be to be counted as a cell.'
+		'\n\n[ABSOLUTE THRESHOLD] - (int) Uses a single threshold value across images. Higher values are less restrictive.'
+		'\nprocessThresh = 144'
+		'\ncellThresh = 134'
+		'\n\n[RELATIVE THRESHOLD] - (float) Determines threshold value for each image as a proportion of background brightness. Higher values are less restrictive.'
+		'\nprocessThresh = 0.83'
+		'\ncellThresh = 0.78'
+		'\n\n[DIFFERENCE THRESHOLD] - (int) Determines threshold for each image as a difference from background brightness. Higher values are more restrictive.'
+		'\nprocessThresh = 30'
+		'\ncellThresh = 40'
+	]
+	cfgFile.writelines(lines)
+	cfgFile.close()
+	print('\nConfig generation complete! Please view and modify parameters in \'config.ini\' in directory \'' + os.getcwd() +'\'\n', flush=True)
+	quit()
 
 #################### PARAMETERS ####################
 
-mode = 'count'									#(string)	(count, thresh, debug). What mode SCC will operate in. 'counting' will count the cells in each image, 
-												#			'thresh' will quickly return background and threshold values, 'debug' will ouput debug images and csv columns.
-imageLocation = r'10X images'						#(string)	Directory in which the images to be processed are located.
-csvOutputLocation = r''							#(string)	Directory into which output csv file with cell counts will be placed. If blank (''), 
-												#			will write to imageLocation.
-imageOutputLocation = r''						#(string)	Directory into which debug outputs will be placed. If blank (''), will write to directory of the input images.
-size = 13										#(int)		Approximate size of cells to count.
-circularityThresh = 0.82						#(float)	How circular a contour has to be before it is counted.
-threshMethod = 'rel'							#(string)	(abs: absolute, rel: relative, dif: difference). See below. 
+config = configparser.ConfigParser()
+config.read('config.ini')
 
-### ABSOLUTE THRESHOLD - Uses a single threshold value across images.
-absProcessThresh = 144							#(int)		The brightness used to create the first black-and-white image.
-absCellThresh = 134								#(int)		The brightness below which the average pixel brightness within a contour must be to be counted as a cell.
+#Grab parameters from 'config.ini'
+mode = config.get('GENERAL','mode')
+imageLocation = config.get('GENERAL','imageLocation')
+csvOutputLocation = config.get('GENERAL','csvOutputLocation')
+imageOutputLocation = config.get('GENERAL','imageOutputLocation')
+size = config.getint('GENERAL','size')
+circularityThresh = config.getfloat('GENERAL','circularityThresh')
+threshMethod = config.get('GENERAL','threshMethod')
 
-### RELATIVE THRESHOLD - Determines threshold value for each image as a proportion of background brightness.
-relProcessThresh = 0.83							#(float)	The brightness used to create the first black-and-white image.
-relCellThresh = 0.78							#(float)	The brightness below which the average pixel brightness within a contour must be to be counted as a cell.
+absProcessThresh = config.getint('ABSOLUTE THRESHOLD','processThresh')
+absCellThresh = config.getint('ABSOLUTE THRESHOLD','cellThresh')
 
-### DIFFERENCE THRESHOLD - Determines threshold for each image as a difference from background brightness.
-difProcessThresh = 30							#(int)		The brightness used to create the first black-and-white image.
-difCellThresh = 40								#(int)		The brightness below which the average pixel brightness within a contour must be to be counted as a cell.
+relProcessThresh = config.getfloat('RELATIVE THRESHOLD','processThresh')
+relCellThresh = config.getfloat('RELATIVE THRESHOLD','cellThresh')
+
+difProcessThresh = config.getint('DIFFERENCE THRESHOLD','processThresh')
+difCellThresh = config.getint('DIFFERENCE THRESHOLD','cellThresh')
 
 #################### PROCESSING ####################
 
-#Output parameters to console.
+#Output parameters to console
 print('\n------------------------\n Mode:',mode, '\n Input Directory:',imageLocation, '\n Cells size:', size, '\n Circularity:',circularityThresh, '\n Threshold method:',threshMethod)
 if threshMethod == 'abs':
 	print('   Processing Threshold:',absProcessThresh, '\n   Cell Threshold:',absCellThresh)
@@ -43,9 +83,10 @@ else:
 	quit()
 print('------------------------\n')
 
+#Initialize variables
 imList = []
 counts = []
-lengths = []
+areas = []
 thr = 0
 processThresh = 0
 cellThresh = 0
@@ -53,13 +94,17 @@ backgrounds = []
 processThresholds = []
 cellThresholds = []
 
+#Calculate minumum and maximum areas for filtering
+minArea = size**2 * 0.8
+maxArea = size**2 * 4.5
+
 for root, dirs, files in os.walk(imageLocation, topdown=False):
-	#Skip file if it has '_' in it, denoting some sort of output file.
+	#Skip file if it has '_' in it, denoting some sort of output file
 	for f in files:
 		if 'abs' in f or 'dif' in f or 'rel' in f or '.csv' in f:
 			continue
 		
-		#Put together file names and paths for input and output images.
+		#Put together file names and paths for input and output images
 		imList.append(f)
 		inputImg = os.path.join(root, f)
 		print(inputImg, flush=True)
@@ -75,7 +120,7 @@ for root, dirs, files in os.walk(imageLocation, topdown=False):
 	#Load image and transform it
 		images[0] = cv2.imread(inputImg)
 		images[1] = cv2.cvtColor(images[0], cv2.COLOR_BGR2GRAY)
-		images[5] = cv2.cvtColor(images[0], cv2.COLOR_BGR2GRAY)
+		images[5] = cv2.cvtColor(images[0], cv2.COLOR_BGR2GRAY)			#Saved for creating the image masks to determine average pixel darkness within a contour
 		
 		#Assess background brightness and calculate thresholds
 		thr = cv2.threshold(images[1], 0, 255, cv2.THRESH_OTSU)[0]
@@ -99,6 +144,7 @@ for root, dirs, files in os.walk(imageLocation, topdown=False):
 		if mode == 'thresh':
 			continue
 		
+		#Process image
 		images[1] = cv2.threshold(images[1], processThresh, 255, cv2.THRESH_BINARY)[1]
 		images[2] = cv2.medianBlur(images[1], 5)
 		images[3] = cv2.morphologyEx(images[2], cv2.MORPH_CLOSE, brush)
@@ -106,16 +152,16 @@ for root, dirs, files in os.walk(imageLocation, topdown=False):
 	#Find contours and filter them
 		contours[0] = cv2.findContours(images[3], cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
 		
-		#Length and corner filter
+		#Area filter
 		for i in range(len(contours[0])):
-			length = len(contours[0][i])
-			if ((contours[0][i][0][0].all() != 0) & (length > 10) & (length < size*4)):
+			area = cv2.contourArea(contours[0][i])
+			if ((area > minArea) & (area < maxArea)):
 				contours[1].append(contours[0][i])
 
 		#Circularity filter
 		for i in range(len(contours[1])):
 			moment = cv2.moments(contours[1][i])
-			circularity = (moment['m00'] ** 2)/(2*pi * (moment['mu02'] + moment['mu20']))
+			circularity = (moment['m00']**2)/(2*pi * (moment['mu02'] + moment['mu20']))
 			if circularity > circularityThresh:
 				contours[2].append(contours[1][i])
 
@@ -143,7 +189,7 @@ for root, dirs, files in os.walk(imageLocation, topdown=False):
 			images[4] = cv2.drawContours(images[0], contours[3], -1, (0,220,0), 2)
 			
 		#Notate counts
-			cv2.putText(images[4], '+!Length:'+str(len(contours[0])), (8,144), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+			cv2.putText(images[4], '+!Area:'+str(len(contours[0])), (8,144), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
 			cv2.putText(images[4], '+!Circular:'+str(len(contours[1])), (8,108), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,140,255), 2)
 			cv2.putText(images[4], '+!Dark:'+str(len(contours[2])), (8,72), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
 			cv2.putText(images[4], 'Cells:'+str(len(contours[3])), (8,36), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,220,0), 2)
@@ -152,18 +198,18 @@ for root, dirs, files in os.walk(imageLocation, topdown=False):
 			cv2.imwrite(outputImg, images[4])
 
 #csv generation
-		#Record average contour length
-			lenList = []
+		#Record average contour area
+			areaList = []
 			for i in range(len(contours[3])):
-				lenList.append(len(contours[3][i]))
-			if lenList == []:
-				lengths.append('N/A')
+				areaList.append(cv2.contourArea(contours[3][i]))#(len(contours[3][i]))
+			if areaList == []:
+				areas.append('N/A')
 			else:
-				lengths.append(np.mean(lenList))
+				areas.append(np.mean(areaList))
 
-#Structure csv file and add average and SEM values to last rows
+#Structure csv file and add average values to last row
 if mode == 'debug':
-	csv = pd.DataFrame({'image':imList,'count':counts,'background':backgrounds,'processThreshold':processThresholds,'cellThreshold':cellThresholds,'length':lengths})
+	csv = pd.DataFrame({'image':imList,'count':counts,'background':backgrounds,'processThreshold':processThresholds,'cellThreshold':cellThresholds,'average area':areas})
 elif mode == 'thresh':
 	csv = pd.DataFrame({'image':imList,'background':backgrounds,'processThreshold':processThresholds,'cellThreshold':cellThresholds})
 else:
