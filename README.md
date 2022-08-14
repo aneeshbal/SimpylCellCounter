@@ -15,8 +15,8 @@ SCC 1.1 and documentation thereof are also available on the v1.1 branch of this 
 
 ### SCC 2.0 Usage
 Clone or download this repository\
-Follow the instructions in the sccProtocols powerpoint or Installation.md\
-Adjust parameters and run according to instructions in the sccProtocols powerpoint
+Follow the instructions in the scc2.0Protocols powerpoint\
+Adjust parameters and run according to instructions in the scc2.0Protocols powerpoint
 
 
 # Contact 
