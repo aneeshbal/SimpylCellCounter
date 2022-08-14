@@ -7,7 +7,7 @@ SCC is also highly-customizable by allowing the user to alter nearly every param
 Lastly, SCC requires minimal knowledge of Python and includes a full graphical user interface. Browsing for files and folders is similar to most computer applications, and modification of source code is never required.
 
 SCC 2.0 has been releaased! New documentation is currently only available on this repository.\
-To learn more about older versions of SCC, read the paper here: https://www.nature.com/articles/s41598-020-68138-4\
+To learn more about older versions of SCC, read the paper here: https://www.nature.com/articles/s41598-020-68138-4 \
 SCC 1.1 and documentation thereof are also available on the v1.1 branch of this repository.
 
 
