@@ -84,16 +84,50 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
                 continue
         
         #Process image
-        images[2] = cv2.threshold(images[1], imageThresh, 255, cv2.THRESH_BINARY)[1]
-        images[3] = cv2.medianBlur(images[2], 5)
-        images[3] = cv2.morphologyEx(images[3], cv2.MORPH_OPEN, brush)
-        images[4] = cv2.morphologyEx(images[3], cv2.MORPH_CLOSE, brush)
-        
-        #Find contours
-        contours[0] = cv2.findContours(images[4], cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
+        for t in range(-40,21,4):
+            if cellThresh+t < 0 or cellThresh+t > 255:
+                continue
+            images[2] = cv2.threshold(images[1], cellThresh+t, 255, cv2.THRESH_BINARY)[1]
+            images[3] = cv2.medianBlur(images[2], 5)
+            images[3] = cv2.morphologyEx(images[3], cv2.MORPH_OPEN, brush)
+            images[4] = cv2.morphologyEx(images[3], cv2.MORPH_CLOSE, brush)
+            
+            #Find contours
+            #newCon = cv2.findContours(images[4], cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
+            #for c in contours[0]:
+            #    if cv2.moments(c)['m00'] == 0:
+            #        continue
+            #    center = tuple([int(cv2.moments(c)[m]/cv2.moments(c)['m00']) for m in ['m10','m01']])
+            #    for c2 in range(200):
+            #        if c2 >= len(newCon):
+            #            break
+            #        while True:
+            #            if cv2.pointPolygonTest(newCon[c2], center, False) == 1:
+            #                del newCon[c2]
+            #            else:
+            #                break
+            #            if c2 >= len(newCon):
+            #                break
+            contours[0].extend(cv2.findContours(images[4], cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0])
 
         #Area filter
         contours[1] = [e for e in contours[0] if cv2.contourArea(e) > minArea and cv2.contourArea(e) < maxArea]
+        for c in range(len(contours[1])):
+            if c >= len(contours[1]):
+                break
+            if cv2.moments(contours[1][c])['m00'] == 0:
+                continue
+            center = tuple([int(cv2.moments(contours[1][c])[m]/cv2.moments(contours[1][c])['m00']) for m in ['m10','m01']])
+            for c2 in range(c+1,len(contours[1])):
+                if c2 >= len(contours[1]):
+                    break
+                while True:
+                    if cv2.pointPolygonTest(contours[1][c2], center, False) == 1:
+                        del contours[1][c2]
+                    else:
+                        break
+                    if c2 >= len(contours[1]):
+                        break
 
         #Cell darkness filter
         intensities = []
@@ -115,7 +149,7 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
         #Image Generation
         if mode == 'Preview' or writeImgs:
             #Draw contours
-            cv2.drawContours(images[5], contours[0], -1, (200,0,255), 2)
+            #cv2.drawContours(images[5], contours[0], -1, (200,0,255), 2)
             cv2.drawContours(images[5], contours[1], -1, (0,140,255), 2)
             cv2.drawContours(images[5], contours[2], -1, (0,255,255), 2)
             cv2.drawContours(images[5], contours[3], -1, (200,220,0), 2)
