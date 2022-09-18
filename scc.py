@@ -1,7 +1,6 @@
 from math import pi
 from imghdr import what
 import os
-from copy import deepcopy
 from sys import platform
 import re
 import cv2
@@ -32,7 +31,8 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
     #Min/Max Areas, Brush
     minArea = size**2 * minAreaCoeff
     maxArea = size**2 * maxAreaCoeff
-    brush = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(size,size))
+    threshKernel = 4*size + (1 if (4*size)%2==0 else 0)
+    morphKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(size,size))
     
     #Make list of images that will be processed
     if channel and mode == 'Batch':
@@ -46,11 +46,24 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
         contours = [[],[],[],[]]		#The object used to store the list of contours after each stage of filtering
         
         #Transform image
-        images[0] = cv2.imread(baseImage)
-        images[5] = deepcopy(images[0])
-        images[1] = cv2.cvtColor(images[0], cv2.COLOR_BGR2GRAY)
+        images[5] = cv2.imread(baseImage)
+        #images[5] = deepcopy(images[0])
+        images[0] = cv2.cvtColor(images[5], cv2.COLOR_BGR2GRAY)
         if fluorescent:
-            images[1] = cv2.bitwise_not(images[1])
+            images[0] = cv2.bitwise_not(images[0])
+        
+        #Truncate pixel values to mode pixel value
+        pxList, pxHist =  np.unique(images[0], return_counts=True)
+        pxMode = pxList[np.argmax(pxHist[5:-5])]    #Ignore brightest and darkest values, in case of ceiling/floor effect
+        images[1] = cv2.threshold(images[0], pxMode, 255, cv2.THRESH_TRUNC)[1]
+
+        #Determine adaptive threshold strength offset
+        #offset = cv2.threshold(images[2], 0, 255, cv2.THRESH_OTSU)[0] * relCellThresh
+        #print(cv2.threshold(images[2], 0, 255, cv2.THRESH_OTSU)[0], relCellThresh, offset)
+        offset = relImageThresh
+
+        #Apply adaptive threshold to image and lightly blur to supress noise
+        images[2] = cv2.medianBlur(cv2.adaptiveThreshold(images[1], 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, threshKernel, offset), 5)
         
         #Assess background brightness and calculate thresholds
         thr = cv2.threshold(images[1], 0, 255, cv2.THRESH_OTSU)[0]
@@ -84,81 +97,61 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
                 continue
         
         #Process image
-        for t in range(-40,21,4):
-            if cellThresh+t < 0 or cellThresh+t > 255:
-                continue
-            images[2] = cv2.threshold(images[1], cellThresh+t, 255, cv2.THRESH_BINARY)[1]
-            images[3] = cv2.medianBlur(images[2], 5)
-            images[3] = cv2.morphologyEx(images[3], cv2.MORPH_OPEN, brush)
-            images[4] = cv2.morphologyEx(images[3], cv2.MORPH_CLOSE, brush)
-            
-            #Find contours
-            #newCon = cv2.findContours(images[4], cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-            #for c in contours[0]:
-            #    if cv2.moments(c)['m00'] == 0:
-            #        continue
-            #    center = tuple([int(cv2.moments(c)[m]/cv2.moments(c)['m00']) for m in ['m10','m01']])
-            #    for c2 in range(200):
-            #        if c2 >= len(newCon):
-            #            break
-            #        while True:
-            #            if cv2.pointPolygonTest(newCon[c2], center, False) == 1:
-            #                del newCon[c2]
-            #            else:
-            #                break
-            #            if c2 >= len(newCon):
-            #                break
-            contours[0].extend(cv2.findContours(images[4], cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0])
+        #images[2] = cv2.threshold(images[1], cellThresh, 255, cv2.THRESH_BINARY)[1]
+        images[3] = cv2.morphologyEx(images[2], cv2.MORPH_OPEN, morphKernel)
+        images[4] = cv2.morphologyEx(images[3], cv2.MORPH_CLOSE, morphKernel)
+
+        contours[0] = cv2.findContours(images[4], cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
 
         #Area filter
         contours[1] = [e for e in contours[0] if cv2.contourArea(e) > minArea and cv2.contourArea(e) < maxArea]
-        for c in range(len(contours[1])):
-            if c >= len(contours[1]):
-                break
-            if cv2.moments(contours[1][c])['m00'] == 0:
-                continue
-            center = tuple([int(cv2.moments(contours[1][c])[m]/cv2.moments(contours[1][c])['m00']) for m in ['m10','m01']])
-            for c2 in range(c+1,len(contours[1])):
-                if c2 >= len(contours[1]):
-                    break
-                while True:
-                    if cv2.pointPolygonTest(contours[1][c2], center, False) == 1:
-                        del contours[1][c2]
-                    else:
-                        break
-                    if c2 >= len(contours[1]):
-                        break
+        #for c in range(len(contours[1])):
+        #    if c >= len(contours[1]):
+        #        break
+        #    if cv2.moments(contours[1][c])['m00'] == 0:
+        #       continue
+        #    center = tuple([int(cv2.moments(contours[1][c])[m]/cv2.moments(contours[1][c])['m00']) for m in ['m10','m01']])
+        #    for c2 in range(c+1,len(contours[1])):
+        #        if c2 >= len(contours[1]):
+        #            break
+        #        while True:
+        #            if cv2.pointPolygonTest(contours[1][c2], center, False) == 1:
+        #                del contours[1][c2]
+        #            else:
+        #                break
+        #            if c2 >= len(contours[1]):
+        #                break
 
         #Cell darkness filter
-        intensities = []
-        for i in range(len(contours[1])):
-            mask = np.zeros_like(images[0])
-            cv2.drawContours(mask, contours[1], i, color=255, thickness=-1)
-            # Access the image pixels and create a 1D numpy array then add to list
-            pts = np.where(mask == 255)[:2]
-            intensities.append(int(np.mean(images[1][pts[0], pts[1]])))
-        contours[2] = [e for i, e in enumerate(contours[1]) if intensities[i] < cellThresh]
+        #intensities = []
+        #for i in range(len(contours[1])):
+        #    mask = np.zeros_like(images[0])
+        #    cv2.drawContours(mask, contours[1], i, color=255, thickness=-1)
+        #    # Access the image pixels and create a 1D numpy array then add to list
+        #    pts = np.where(mask == 255)[:2]
+        #    intensities.append(int(np.mean(images[1][pts[0], pts[1]])))
+        #contours[2] = [e for i, e in enumerate(contours[1]) if intensities[i] < cellThresh]
 
         #Circularity filter
-        contours[3] = [e for e in contours[2] if (cv2.moments(e)['m00']**2)/(2*pi * (cv2.moments(e)['mu02'] + cv2.moments(e)['mu20'])) > circularityThresh]
+        contours[2] = [e for e in contours[1] if (cv2.moments(e)['m00']**2)/(2*pi * (cv2.moments(e)['mu02'] + cv2.moments(e)['mu20'])) > circularityThresh]
 
         if mode == 'Batch':
-            counts.append(len(contours[3]))
-            areas.append(np.mean([cv2.contourArea(e) for e in contours[3]]))
+            counts.append(len(contours[2]))
+            areas.append(np.mean([cv2.contourArea(e) for e in contours[2]]))
             
         #Image Generation
         if mode == 'Preview' or writeImgs:
             #Draw contours
-            #cv2.drawContours(images[5], contours[0], -1, (200,0,255), 2)
-            cv2.drawContours(images[5], contours[1], -1, (0,140,255), 2)
-            cv2.drawContours(images[5], contours[2], -1, (0,255,255), 2)
-            cv2.drawContours(images[5], contours[3], -1, (200,220,0), 2)
+            cv2.drawContours(images[5], contours[0], -1, (200,0,255), 2)
+            #cv2.drawContours(images[5], contours[1], -1, (0,140,255), 2)
+            cv2.drawContours(images[5], contours[1], -1, (0,255,255), 2)
+            cv2.drawContours(images[5], contours[2], -1, (200,220,0), 2)
 
             #Notate counts
-            cv2.putText(images[5], '+!Area:'+str(len(contours[0])), (8,36), cv2.FONT_HERSHEY_SIMPLEX, 1, (200,0,255), 2)
-            cv2.putText(images[5], '+!Dark:'+str(len(contours[1])), (8,72), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,140,255), 2)
-            cv2.putText(images[5], '+!Circular:'+str(len(contours[2])), (8,108), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
-            cv2.putText(images[5], 'Cells:'+str(len(contours[3])), (8,144), cv2.FONT_HERSHEY_SIMPLEX, 1, (200,220,0), 2)
+            cv2.putText(images[5], '!Area:'+str(len(contours[0])-len(contours[1])), (8,36), cv2.FONT_HERSHEY_SIMPLEX, 1, (200,0,255), 2)
+            #cv2.putText(images[5], '+!Dark:'+str(len(contours[1])), (8,72), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,140,255), 2)
+            cv2.putText(images[5], '!Circular:'+str(len(contours[1])-len(contours[2])), (8,72), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
+            cv2.putText(images[5], 'Cells:'+str(len(contours[2])), (8,108), cv2.FONT_HERSHEY_SIMPLEX, 1, (200,220,0), 2)
         
         if mode == 'Batch':
             if writeImgs:
@@ -255,7 +248,7 @@ def coex(window,threadNr,saveFile,conFiles,coexImgs):
             else:
                 image = cv2.imread(file)
             cv2.drawContours(image, imgCoContours, -1, (255,255,255), 2)
-            cv2.putText(image, 'Colabeled Cells:'+str(len(imgCoContours)), (8,180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+            cv2.putText(image, 'Colabeled Cells:'+str(len(imgCoContours)), (8,144), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
             cv2.imwrite(file.rsplit('.',1)[0] + '_$$%.' + file.rsplit('.',1)[1], image)
     
     window.write_event_value('THREAD_CPRINT', ('Coex '+str(threadNr)+' finished!', 'black on palegreen'))
@@ -271,7 +264,7 @@ def tt(elementID):
     elif(elementID) == 'Make output images': return 'Batch mode will output\nimages with contours drawn.'
     elif(elementID) == 'Thresh Method': return 'Absolute: Uses same brightness on all images.\nRelative: Multiplies background brightness of each image.\nDifference: Subtracts from background brighness of each image.'
     elif(elementID) == 'AbsThr': return '[0,255] Lower values more selective.'
-    elif(elementID) == 'RelThr': return '[0,1] Lower values more selective.'
+    elif(elementID) == 'SelStr': return 'How strongly cells must stand out from surrounding tissue.'
     elif(elementID) == 'DifThr': return '[0,255] Higher values more selective.'
     elif(elementID) == 'Fluorescent': return 'Enable if analyzing fluorescent images.'
     elif(elementID) == 'Size': return 'Approximate radius, in pixels,\nof smallest cells'
@@ -370,8 +363,8 @@ def make_baseWindow():
                  [sg.Spin([i for i in range(0,256)], initial_value=absImageThresh, size=(6,1), key='ABS_IMG_THR'),
                   sg.T('       '),
                   sg.Spin([i for i in range(0,256)], initial_value=absCellThresh, size=(6,1), key='ABS_CELL_THR')]], pad=(0,0), visible=threshMethod.startswith('A'), key='ACOL'),
-         sg.Col([[sg.T('Image Thresh      Cell Thresh', tooltip=tt('RelThr'), key='REL_MODE')],
-                 [sg.Spin([i/100 for i in range(0,101)], initial_value=relImageThresh, size=(6,1), key='REL_IMG_THR'),
+         sg.Col([[sg.T('Selection Strength', tooltip=tt('SelStr'), key='REL_MODE')],
+                 [sg.Spin([i/10 for i in range(0,501)], initial_value=relImageThresh, size=(6,1), key='REL_IMG_THR'),
                   sg.T('       '),
                   sg.Spin([i/100 for i in range(0,101)], initial_value=relCellThresh, size=(6,1), key='REL_CELL_THR')]], pad=(0,0), visible=threshMethod.startswith('R'), key='RCOL'),
          sg.Col([[sg.T('Image Thresh      Cell Thresh', tooltip=tt('DifThr'), key='DIF_MODE')],
@@ -516,7 +509,7 @@ while True:
 
     elif event == 'PREVIEW_RETURN':
         fig = plt.figure(figsize=(32, 24))
-        labels = ['Original','Original, grayscale','After image threshold','After gap filling','After size filtering','Final']
+        labels = ['Source','Truncated','After threshold','After gap filling','After size filtering','Final']
         for i, im in enumerate(labels):
             fig.add_subplot(2, 3, i+1)
             plt.imshow(cv2.cvtColor(values['PREVIEW_RETURN'][i], cv2.COLOR_RGB2BGR), cmap='gray')
