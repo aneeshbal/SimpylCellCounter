@@ -22,8 +22,9 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
     
     counts = []
     backgrounds = []
-    imageThresholds = []
-    cellThresholds = []
+    #imageThresholds = []
+    #cellThresholds = []
+    strengths = []
     areas = []
     csv = []
     concsv = []
@@ -31,6 +32,7 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
     #Min/Max Areas, Brush
     minArea = size**2 * minAreaCoeff
     maxArea = size**2 * maxAreaCoeff
+    oddSize = size + (1 if size%2==0 else 0)
     threshKernel = 4*size + (1 if (4*size)%2==0 else 0)
     morphKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(size,size))
     
@@ -55,12 +57,13 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
         #Truncate pixel values to mode pixel value
         pxList, pxHist =  np.unique(images[0], return_counts=True)
         pxMode = pxList[np.argmax(pxHist[5:-5])]    #Ignore brightest and darkest values, in case of ceiling/floor effect
-        images[1] = cv2.threshold(images[0], pxMode, 255, cv2.THRESH_TRUNC)[1]
+        images[1] = cv2.GaussianBlur(cv2.threshold(images[0], pxMode, 255, cv2.THRESH_TRUNC)[1], (int(relCellThresh),int(relCellThresh)), 0)#(oddSize,oddSize), 0)
 
         #Determine adaptive threshold strength offset
-        #offset = cv2.threshold(images[2], 0, 255, cv2.THRESH_OTSU)[0] * relCellThresh
+        offset = (pxMode - cv2.threshold(images[1], 0, 255, cv2.THRESH_OTSU)[0]) * relImageThresh
         #print(cv2.threshold(images[2], 0, 255, cv2.THRESH_OTSU)[0], relCellThresh, offset)
-        offset = relImageThresh
+        print(pxMode, cv2.threshold(images[1], 0, 255, cv2.THRESH_OTSU)[0], offset)
+        #offset = relImageThresh
 
         #Apply adaptive threshold to image and lightly blur to supress noise
         images[2] = cv2.medianBlur(cv2.adaptiveThreshold(images[1], 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, threshKernel, offset), 5)
@@ -89,8 +92,9 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
         #Record thresholds used
         if mode == 'Batch':
             backgrounds.append(thr)
-            imageThresholds.append(imageThresh)
-            cellThresholds.append(cellThresh)
+            #imageThresholds.append(imageThresh)
+            #cellThresholds.append(cellThresh)
+            strengths.append(offset)
             if threshOnly:
                 counts.append('N/A')
                 areas.append('N/A')
@@ -162,8 +166,8 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
         
     if mode == 'Batch':
         #csv Generation
-        csv = pd.DataFrame({'image':imgsToProcess,'count':counts,'background':backgrounds,'imageThreshold':imageThresholds,'cellThreshold':cellThresholds,'averageArea':areas})
-        csv = csv[['image', 'count', 'background', 'imageThreshold', 'cellThreshold', 'averageArea']]
+        csv = pd.DataFrame({'image':imgsToProcess,'count':counts,'background':backgrounds,'strength':strengths,'averageArea':areas})
+        csv = csv[['image', 'count', 'background', 'strength', 'averageArea']]
 
         csv.set_index('image', inplace=True)
         countcsv = csv.copy()
