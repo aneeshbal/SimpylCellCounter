@@ -68,6 +68,11 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
             imageThresh = thr-difImageThresh
             cellThresh = thr-difCellThresh
         
+        if imageThresh < 5:
+            imageThresh = 5
+        if cellThresh < 5:
+            cellThresh = 5
+        
         #Record thresholds used
         if mode == 'Batch':
             backgrounds.append(thr)
@@ -216,7 +221,7 @@ def coex(window,threadNr,saveFile,conFiles,coexImgs):
                 image = cv2.imread(file)
             cv2.drawContours(image, imgCoContours, -1, (255,255,255), 2)
             cv2.putText(image, 'Colabeled Cells:'+str(len(imgCoContours)), (8,180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
-            cv2.imwrite(file.rsplit('.',1)[0] + '_$%$.' + file.rsplit('.',1)[1], image)
+            cv2.imwrite(file.rsplit('.',1)[0] + '_$$%.' + file.rsplit('.',1)[1], image)
     
     window.write_event_value('THREAD_CPRINT', ('Coex '+str(threadNr)+' finished!', 'black on palegreen'))
 
@@ -444,7 +449,7 @@ while True:
             if os.path.isdir(values['IMG_FOLDER']):
                 for root, dirs, files in os.walk(values['IMG_FOLDER'], topdown=False):
                     imFiles.extend([os.path.join(root, f) for f in files if what(os.path.join(root, f)) != None and '$$$' not in f])
-                    imNames.extend([f for f in files if what(os.path.join(root, f)) != None and '$$$' not in f])
+                    imNames.extend([f for f in files if what(os.path.join(root, f)) != None and '_$$' not in f])
             else:
                 sg.popup('Invalid Folder!\nPlease Select a Folder.', location=tuple(map(lambda i, j: i + j, window.CurrentLocation(), (200,160))))
                 continue
