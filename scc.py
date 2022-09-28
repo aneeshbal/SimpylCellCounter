@@ -62,8 +62,8 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
             cellThresh = int(thr*relCellThresh)
         elif threshMethod == 'Relative' and fluorescent:
             invThr = 255 - thr
-            imageThresh = 255 - int(invThr/relImageThresh)
-            cellThresh = 255 - int(invThr/relCellThresh)
+            imageThresh = thr - int((1-relImageThresh)*invThr)
+            cellThresh = thr - int((1-relCellThresh)*invThr)
         elif threshMethod == 'Difference':
             imageThresh = thr-difImageThresh
             cellThresh = thr-difCellThresh
@@ -86,9 +86,10 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
         #Process image
         images[2] = cv2.threshold(images[1], imageThresh, 255, cv2.THRESH_BINARY)[1]
         images[3] = cv2.medianBlur(images[2], 5)
+        images[3] = cv2.morphologyEx(images[3], cv2.MORPH_OPEN, brush)
         images[4] = cv2.morphologyEx(images[3], cv2.MORPH_CLOSE, brush)
         
-        #Find contours and filter them
+        #Find contours
         contours[0] = cv2.findContours(images[4], cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
 
         #Area filter
@@ -448,7 +449,7 @@ while True:
             imNames = []
             if os.path.isdir(values['IMG_FOLDER']):
                 for root, dirs, files in os.walk(values['IMG_FOLDER'], topdown=False):
-                    imFiles.extend([os.path.join(root, f) for f in files if what(os.path.join(root, f)) != None and '$$$' not in f])
+                    imFiles.extend([os.path.join(root, f) for f in files if what(os.path.join(root, f)) != None and '_$$' not in f])
                     imNames.extend([f for f in files if what(os.path.join(root, f)) != None and '_$$' not in f])
             else:
                 sg.popup('Invalid Folder!\nPlease Select a Folder.', location=tuple(map(lambda i, j: i + j, window.CurrentLocation(), (200,160))))
@@ -481,7 +482,7 @@ while True:
 
     elif event == 'PREVIEW_RETURN':
         fig = plt.figure(figsize=(32, 24))
-        labels = ['Original','Original, grayscale','After image threshold','After median blur','After size filtering','Final']
+        labels = ['Original','Original, grayscale','After image threshold','After gap filling','After size filtering','Final']
         for i, im in enumerate(labels):
             fig.add_subplot(2, 3, i+1)
             plt.imshow(cv2.cvtColor(values['PREVIEW_RETURN'][i], cv2.COLOR_RGB2BGR), cmap='gray')
