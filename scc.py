@@ -15,7 +15,7 @@ from warnings import filterwarnings
 filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 #SCC LOOP ------------------------
-def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,size,minArea,maxArea,circularityThresh,offset,channel):
+def scc(window,threadNr,saveFile,imFiles,mode,spreadOnly,writeImgs,fluorescent,size,minArea,maxArea,circularityThresh,offset,channel):
     window.write_event_value('THREAD_CPRINT', (str(mode)+' '+str(threadNr)+' running...', 'black on yellow'))
     
     counts = []
@@ -62,7 +62,7 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
         if mode == 'Batch':
             backgrounds.append(pxMode)
             spreads.append(pxMode-ptOtsu)
-            if threshOnly:
+            if spreadOnly:
                 counts.append('N/A')
                 areas.append('N/A')
                 continue
@@ -120,7 +120,7 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
             return 0
 
         #npz file 
-        if channel and not threshOnly:
+        if channel and not spreadOnly:
             contourArray = np.array(concsv, dtype='object')
             np.savez(saveFile[:-4]+'.npz', names=imgsToProcess, contours=contourArray)
         
@@ -201,9 +201,8 @@ def coex(window,threadNr,saveFile,conFiles,coexImgs):
 def tt(elementID):
     if(elementID) == 'Batch Mode': return 'Runs SCC on all images in selected folder.'
     elif(elementID) == 'Preview Mode': return 'Runs SCC on one image and diplays processing steps.'
-    elif(elementID) == 'Thresholds only': return 'Batch mode will not count cells, will output\nthe background brightness of each image.'
+    elif(elementID) == 'Spreads only': return 'Batch mode will not count cells, will output the background\nand spread between background and cells of each image.'
     elif(elementID) == 'Make output images': return 'Batch mode will output\nimages with contours drawn.'
-    elif(elementID) == 'Thresh Method': return 'Absolute: Uses same brightness on all images.\nRelative: Multiplies background brightness of each image.\nDifference: Subtracts from background brighness of each image.'
     elif(elementID) == 'SelStr': return 'How strongly cells must stand out from surrounding tissue.'
     elif(elementID) == 'Fluorescent': return 'Enable if analyzing fluorescent images.'
     elif(elementID) == 'Size': return 'Approximate radius, in pixels,\nof smallest cells'
@@ -212,7 +211,7 @@ def tt(elementID):
     elif(elementID) == 'Circularity Thresh': return '[0,1) How circular an outlined cell must be\nto pass the circularity filter.'
     elif(elementID) == 'Channel Identifier': return '(Optional) Text identifier of\nchannel type in image names.'
     elif(elementID) == 'CoexImgs': return 'Coexpression contours will\nbe drawn on output images.'
-    else: return 'NO MATCHING CASE IN TOOLTIP LIST'
+    else: return 'WARNING: NO MATCHING CASE IN TOOLTIP LIST'
 
 #FILE/FOLDER BROWSE FUNCTIONS ---------------------
 def folderbrowse():
@@ -263,9 +262,9 @@ threadNr = 0
 
 mode = 'Batch'
 channel = ''
-threshOnly = False
+spreadOnly = False
 writeImgs = False
-fluorescent = True
+fluorescent = False
 size = 13
 minArea = 100
 maxArea = 600
@@ -285,12 +284,12 @@ def make_baseWindow():
          sg.In(size=(27,1), visible=False, key='IMG_FILE')],
         [sg.B('Browse Folders', key='IMG_FOLD_BROWSE'),
          sg.B('Browse Images', visible=False, key='IMG_FILE_BROWSE')],
-        [sg.Checkbox('Thresholds only', default=False, enable_events=True, tooltip=tt('Thresholds only'), key='THRESH_ONLY')],
+        [sg.Checkbox('Spreads only', default=False, enable_events=True, tooltip=tt('Spreads only'), key='SPREAD_ONLY')],
         [sg.Checkbox('Make output images', default=False, tooltip=tt('Make output images'), key='WRITE_IMGS')],
         [sg.T('_'*27)],
 
-        [sg.T('Selection Strength', tooltip=tt('SelStr'), key='SEL_STR')],
-                 [sg.Spin([i/10 for i in range(0,501)], initial_value=offset, size=(6,1), key='OFFSET')],
+        [sg.T('Selection Strength', tooltip=tt('SelStr'), key='SEL_STR'),
+         sg.Spin([i/10 for i in range(0,501)], initial_value=offset, size=(6,1), key='OFFSET')],
         [sg.T('', size=(None,1))]]
 
     second_col = [
@@ -352,8 +351,8 @@ while True:
         window['IMG_FILE'].update(visible=False)
         window['IMG_FOLD_BROWSE'].update(visible=True)
         window['IMG_FILE_BROWSE'].update(visible=False)
-        window['THRESH_ONLY'].update(disabled=False)
-        if not values['THRESH_ONLY']:
+        window['SPREAD_ONLY'].update(disabled=False)
+        if not values['SPREAD_ONLY']:
             window['WRITE_IMGS'].update(disabled=False)
 
     elif event == 'PREVIEW_MODE':
@@ -364,7 +363,7 @@ while True:
         window['IMG_FILE'].update(visible=True)
         window['IMG_FOLD_BROWSE'].update(visible=False)
         window['IMG_FILE_BROWSE'].update(visible=True)
-        window['THRESH_ONLY'].update(disabled=True)
+        window['SPREAD_ONLY'].update(disabled=True)
         window['WRITE_IMGS'].update(disabled=True)
     
     elif event == 'IMG_FOLD_BROWSE':
@@ -373,10 +372,10 @@ while True:
     elif event == 'IMG_FILE_BROWSE':
         window['IMG_FILE'].update(filebrowse(filetypes = (('Image Files', '*.jpg *jpeg *.png *.tif *.tiff'),)))
 
-    elif event == 'THRESH_ONLY':
-        if values['THRESH_ONLY']:
+    elif event == 'SPREAD_ONLY':
+        if values['SPREAD_ONLY']:
             window['WRITE_IMGS'].update(disabled=True)
-        elif not values['THRESH_ONLY']:
+        elif not values['SPREAD_ONLY']:
             window['WRITE_IMGS'].update(disabled=False)
 
     elif event == 'RUN_SCC':
@@ -407,7 +406,7 @@ while True:
                                                saveFile,
                                                imFiles,
                                                mode,
-                                               values['THRESH_ONLY'],
+                                               values['SPREAD_ONLY'],
                                                values['WRITE_IMGS'],
                                                values['FLUO'],
                                                int(values['SIZE']),
