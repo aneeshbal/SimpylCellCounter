@@ -201,8 +201,8 @@ def coex(window,threadNr,saveFile,conFiles,coexImgs):
 def tt(elementID):
     if(elementID) == 'Batch Mode': return 'Runs SCC on all images in selected folder.'
     elif(elementID) == 'Preview Mode': return 'Runs SCC on one image and diplays processing steps.'
-    elif(elementID) == 'Spreads only': return 'Batch mode will not count cells, will output the background\nand spread between background and cells of each image.'
-    elif(elementID) == 'Make output images': return 'Batch mode will output\nimages with contours drawn.'
+    elif(elementID) == 'Spreads Only': return 'Batch mode will not count cells, will output the background\nand spread between background and cells of each image.'
+    elif(elementID) == 'Make Output Images': return 'Batch mode will output\nimages with contours drawn.'
     elif(elementID) == 'SelStr': return 'How strongly cells must stand out from surrounding tissue.'
     elif(elementID) == 'Fluorescent': return 'Enable if analyzing fluorescent images.'
     elif(elementID) == 'Size': return 'Approximate radius, in pixels,\nof smallest cells'
@@ -210,7 +210,7 @@ def tt(elementID):
     elif(elementID) == 'Maximum Area': return 'Maximum area of an outlined cell\nto pass the size filter.'
     elif(elementID) == 'Circularity Thresh': return '[0,1) How circular an outlined cell must be\nto pass the circularity filter.'
     elif(elementID) == 'Channel Identifier': return '(Optional) Text identifier of\nchannel type in image names.'
-    elif(elementID) == 'CoexImgs': return 'Coexpression contours will\nbe drawn on output images.'
+    elif(elementID) == 'CoexImgs': return 'Co-expression contours will\nbe drawn on output images.'
     else: return 'WARNING: NO MATCHING CASE IN TOOLTIP LIST'
 
 #FILE/FOLDER BROWSE FUNCTIONS ---------------------
@@ -284,8 +284,8 @@ def make_baseWindow():
          sg.In(size=(27,1), visible=False, key='IMG_FILE')],
         [sg.B('Browse Folders', key='IMG_FOLD_BROWSE'),
          sg.B('Browse Images', visible=False, key='IMG_FILE_BROWSE')],
-        [sg.Checkbox('Spreads only', default=False, enable_events=True, tooltip=tt('Spreads only'), key='SPREAD_ONLY')],
-        [sg.Checkbox('Make output images', default=False, tooltip=tt('Make output images'), key='WRITE_IMGS')],
+        [sg.Checkbox('Spreads Only', default=False, enable_events=True, tooltip=tt('Spreads Only'), key='SPREAD_ONLY')],
+        [sg.Checkbox('Make Output Images', default=False, tooltip=tt('Make Output Images'), key='WRITE_IMGS')],
         [sg.T('_'*27)],
 
         [sg.T('Selection Strength', tooltip=tt('SelStr'), key='SEL_STR'),
@@ -295,11 +295,11 @@ def make_baseWindow():
     second_col = [
         [sg.Checkbox('Fluorescent', default=fluorescent, tooltip=tt('Fluorescent'), key='FLUO')],
         [sg.T('Size', tooltip=tt('Size')),
-         sg.Spin([i for i in range(1,100)], initial_value=size, size=(6,1), key='SIZE')],
+         sg.Spin([i for i in range(1,101)], initial_value=size, size=(6,1), key='SIZE')],
         [sg.T('Minimum Area', tooltip=tt('Minimum Area')),
-         sg.Spin([i for i in range(0,4000)], initial_value=minArea, size=(6,1), key='MIN_AREA')],
+         sg.Spin([i for i in range(0,4001)], initial_value=minArea, size=(6,1), key='MIN_AREA')],
         [sg.T('Maximum Area', tooltip=tt('Maximum Area')),
-         sg.Spin([i for i in range(0,10000)], initial_value=maxArea, size=(6,1), key='MAX_AREA')],
+         sg.Spin([i for i in range(0,10001)], initial_value=maxArea, size=(6,1), key='MAX_AREA')],
         [sg.T('Circularity Thresh', tooltip=tt('Circularity Thresh')),
          sg.Spin([i/100 for i in range(0,101)], initial_value=circularityThresh, size=(6,1), key='CIRCLE_THR')],
         [sg.T('_'*33)],
@@ -312,13 +312,13 @@ def make_baseWindow():
         [sg.B('Select Contour Files', key='CON_FILES_BROWSE')],
         [sg.Multiline(visible=False, key='CON_FILES'),
          sg.Multiline(size=(55,5), disabled=True, key='CON_FILES_DISPLAY')],
-        [sg.Checkbox('Add contours to output images', default=False, tooltip=tt('CoexImgs'), key='COEX_IMGS')],
+        [sg.Checkbox('Add Contours to Output Images', default=False, tooltip=tt('CoexImgs'), key='COEX_IMGS')],
         [sg.B('Run', button_color=('#000000','#00BBBB'), key='RUN_COEX')]]
 
     tab1 = [[sg.Column(first_col), sg.VSeparator(), sg.Column(second_col)]]
     tab2 = [[sg.Column(third_col)]]
 
-    layout = [[sg.TabGroup([[sg.Tab('General', tab1), sg.Tab('Coexpression', tab2)]])]]
+    layout = [[sg.TabGroup([[sg.Tab('General', tab1), sg.Tab('Co-expression', tab2)]])]]
 
     return sg.Window('SimpylCellCounter', layout, scaling=1.5, resizable=True, finalize=True)
 
