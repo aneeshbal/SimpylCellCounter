@@ -1,9 +1,6 @@
 from math import pi
 from imghdr import what
 import os
-from copy import deepcopy
-from sys import platform
-import re
 import cv2
 import numpy as np
 import pandas as pd
@@ -18,21 +15,20 @@ from warnings import filterwarnings
 filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 #SCC LOOP ------------------------
-def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,size,minAreaCoeff,maxAreaCoeff,circularityThresh,threshMethod,absImageThresh,absCellThresh,relImageThresh,relCellThresh,difImageThresh,difCellThresh,channel):
+def scc(window,threadNr,saveFile,imFiles,mode,spreadOnly,writeImgs,fluorescent,size,minArea,maxArea,circularityThresh,offset,channel):
     window.write_event_value('THREAD_CPRINT', (str(mode)+' '+str(threadNr)+' running...', 'black on yellow'))
     
     counts = []
     backgrounds = []
-    imageThresholds = []
-    cellThresholds = []
+    spreads = []
     areas = []
     csv = []
     concsv = []
     
     #Min/Max Areas, Brush
-    minArea = size**2 * minAreaCoeff
-    maxArea = size**2 * maxAreaCoeff
-    brush = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(size,size))
+    oddSize = size + (1 if size%2==0 else 0)
+    threshKernel = 4*size + (1 if (4*size)%2==0 else 0)
+    morphKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(size,size))
     
     #Make list of images that will be processed
     if channel and mode == 'Batch':
@@ -46,85 +42,58 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
         contours = [[],[],[],[]]		#The object used to store the list of contours after each stage of filtering
         
         #Transform image
-        images[0] = cv2.imread(baseImage)
-        images[5] = deepcopy(images[0])
-        images[1] = cv2.cvtColor(images[0], cv2.COLOR_BGR2GRAY)
+        images[5] = cv2.imread(baseImage)
+        images[0] = cv2.cvtColor(images[5], cv2.COLOR_BGR2GRAY)
         if fluorescent:
-            images[1] = cv2.bitwise_not(images[1])
+            images[0] = cv2.bitwise_not(images[0])
+
+        #Truncate pixel values to mode pixel value
+        pxList, pxHist =  np.unique(images[0], return_counts=True)
+        pxMode = pxList[np.argmax(pxHist[5:-5])]    #Ignore brightest and darkest values, in case of ceiling/floor effect
+        images[1] = cv2.GaussianBlur(cv2.threshold(images[0], pxMode, 255, cv2.THRESH_TRUNC)[1], (oddSize,oddSize), 0)
+
+        #Apply adaptive threshold to image and lightly blur to supress noise
+        images[2] = cv2.medianBlur(cv2.adaptiveThreshold(images[1], 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, threshKernel, offset), 5)
         
-        #Assess background brightness and calculate thresholds
-        thr = cv2.threshold(images[1], 0, 255, cv2.THRESH_OTSU)[0]
-        if threshMethod == 'Absolute':
-            imageThresh = absImageThresh
-            cellThresh = absCellThresh
-        elif threshMethod == 'Relative' and not fluorescent:
-            imageThresh = int(thr*relImageThresh)
-            cellThresh = int(thr*relCellThresh)
-        elif threshMethod == 'Relative' and fluorescent:
-            invThr = 255 - thr
-            imageThresh = thr - int((1-relImageThresh)*invThr)
-            cellThresh = thr - int((1-relCellThresh)*invThr)
-        elif threshMethod == 'Difference':
-            imageThresh = thr-difImageThresh
-            cellThresh = thr-difCellThresh
+        #Assess background brightness
+        ptOtsu = cv2.threshold(images[1], 0, 255, cv2.THRESH_OTSU)[0]
         
-        if imageThresh < 5:
-            imageThresh = 5
-        if cellThresh < 5:
-            cellThresh = 5
-        
-        #Record thresholds used
+        #Record background and offset used
         if mode == 'Batch':
-            backgrounds.append(thr)
-            imageThresholds.append(imageThresh)
-            cellThresholds.append(cellThresh)
-            if threshOnly:
+            backgrounds.append(pxMode)
+            spreads.append(pxMode-ptOtsu)
+            if spreadOnly:
                 counts.append('N/A')
                 areas.append('N/A')
                 continue
         
         #Process image
-        images[2] = cv2.threshold(images[1], imageThresh, 255, cv2.THRESH_BINARY)[1]
-        images[3] = cv2.medianBlur(images[2], 5)
-        images[3] = cv2.morphologyEx(images[3], cv2.MORPH_OPEN, brush)
-        images[4] = cv2.morphologyEx(images[3], cv2.MORPH_CLOSE, brush)
-        
-        #Find contours
+        images[3] = cv2.morphologyEx(images[2], cv2.MORPH_OPEN, morphKernel)
+        images[4] = cv2.morphologyEx(images[3], cv2.MORPH_CLOSE, morphKernel)
+
         contours[0] = cv2.findContours(images[4], cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
 
         #Area filter
         contours[1] = [e for e in contours[0] if cv2.contourArea(e) > minArea and cv2.contourArea(e) < maxArea]
 
-        #Cell darkness filter
-        intensities = []
-        for i in range(len(contours[1])):
-            mask = np.zeros_like(images[0])
-            cv2.drawContours(mask, contours[1], i, color=255, thickness=-1)
-            # Access the image pixels and create a 1D numpy array then add to list
-            pts = np.where(mask == 255)[:2]
-            intensities.append(int(np.mean(images[1][pts[0], pts[1]])))
-        contours[2] = [e for i, e in enumerate(contours[1]) if intensities[i] < cellThresh]
-
         #Circularity filter
-        contours[3] = [e for e in contours[2] if (cv2.moments(e)['m00']**2)/(2*pi * (cv2.moments(e)['mu02'] + cv2.moments(e)['mu20'])) > circularityThresh]
+        contours[2] = [e for e in contours[1] if (cv2.moments(e)['m00']**2)/(2*pi * (cv2.moments(e)['mu02'] + cv2.moments(e)['mu20'])) > circularityThresh]
 
         if mode == 'Batch':
-            counts.append(len(contours[3]))
-            areas.append(np.mean([cv2.contourArea(e) for e in contours[3]]))
+            counts.append(len(contours[2]))
+            areas.append(np.mean([cv2.contourArea(e) for e in contours[2]]))
             
         #Image Generation
         if mode == 'Preview' or writeImgs:
             #Draw contours
             cv2.drawContours(images[5], contours[0], -1, (200,0,255), 2)
-            cv2.drawContours(images[5], contours[1], -1, (0,140,255), 2)
-            cv2.drawContours(images[5], contours[2], -1, (0,255,255), 2)
-            cv2.drawContours(images[5], contours[3], -1, (200,220,0), 2)
+            cv2.drawContours(images[5], contours[1], -1, (0,255,255), 2)
+            cv2.drawContours(images[5], contours[2], -1, (200,220,0), 2)
 
             #Notate counts
-            cv2.putText(images[5], '+!Area:'+str(len(contours[0])), (8,36), cv2.FONT_HERSHEY_SIMPLEX, 1, (200,0,255), 2)
-            cv2.putText(images[5], '+!Dark:'+str(len(contours[1])), (8,72), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,140,255), 2)
-            cv2.putText(images[5], '+!Circular:'+str(len(contours[2])), (8,108), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
-            cv2.putText(images[5], 'Cells:'+str(len(contours[3])), (8,144), cv2.FONT_HERSHEY_SIMPLEX, 1, (200,220,0), 2)
+            cv2.putText(images[5], '!Area:'+str(len(contours[0])-len(contours[1])), (8,36), cv2.FONT_HERSHEY_SIMPLEX, 1, (200,0,255), 2)
+            cv2.putText(images[5], '!Circular:'+str(len(contours[1])-len(contours[2])), (8,72), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
+            cv2.putText(images[5], 'Cells:'+str(len(contours[2])), (8,108), cv2.FONT_HERSHEY_SIMPLEX, 1, (200,220,0), 2)
         
         if mode == 'Batch':
             if writeImgs:
@@ -135,8 +104,8 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
         
     if mode == 'Batch':
         #csv Generation
-        csv = pd.DataFrame({'image':imgsToProcess,'count':counts,'background':backgrounds,'imageThreshold':imageThresholds,'cellThreshold':cellThresholds,'averageArea':areas})
-        csv = csv[['image', 'count', 'background', 'imageThreshold', 'cellThreshold', 'averageArea']]
+        csv = pd.DataFrame({'image':imgsToProcess,'count':counts,'background':backgrounds,'spread':spreads,'averageArea':areas})
+        csv = csv[['image', 'count', 'background','spread', 'averageArea']]
 
         csv.set_index('image', inplace=True)
         countcsv = csv.copy()
@@ -151,7 +120,7 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
             return 0
 
         #npz file 
-        if channel and not threshOnly:
+        if channel and not spreadOnly:
             contourArray = np.array(concsv, dtype='object')
             np.savez(saveFile[:-4]+'.npz', names=imgsToProcess, contours=contourArray)
         
@@ -163,7 +132,6 @@ def scc(window,threadNr,saveFile,imFiles,mode,threshOnly,writeImgs,fluorescent,s
 def coex(window,threadNr,saveFile,conFiles,coexImgs):
     window.write_event_value('THREAD_CPRINT', ('Coex '+str(threadNr)+' running...', 'black on yellow'))
     
-    channelNames = []
     imageNames = []
     imNamesFull = []
     cellContours = []
@@ -180,7 +148,7 @@ def coex(window,threadNr,saveFile,conFiles,coexImgs):
     coContours = []
     contourCenters = [[[tuple([int(cv2.moments(con)[m]/cv2.moments(con)['m00']) for m in ['m10','m01']]) for con in image] for image in channel] for channel in cellContours]
 
-    #new coex analysis attempt 7/20/22
+    #Coex analysis
     for refChannel in range(len(cellContours)):
         for image in range(len(cellContours[refChannel])):
             coCount = 0
@@ -221,7 +189,7 @@ def coex(window,threadNr,saveFile,conFiles,coexImgs):
             else:
                 image = cv2.imread(file)
             cv2.drawContours(image, imgCoContours, -1, (255,255,255), 2)
-            cv2.putText(image, 'Colabeled Cells:'+str(len(imgCoContours)), (8,180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+            cv2.putText(image, 'Colabeled Cells:'+str(len(imgCoContours)), (8,144), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
             cv2.imwrite(file.rsplit('.',1)[0] + '_$$%.' + file.rsplit('.',1)[1], image)
     
     window.write_event_value('THREAD_CPRINT', ('Coex '+str(threadNr)+' finished!', 'black on palegreen'))
@@ -233,20 +201,17 @@ def coex(window,threadNr,saveFile,conFiles,coexImgs):
 def tt(elementID):
     if(elementID) == 'Batch Mode': return 'Runs SCC on all images in selected folder.'
     elif(elementID) == 'Preview Mode': return 'Runs SCC on one image and diplays processing steps.'
-    elif(elementID) == 'Thresholds only': return 'Batch mode will not count cells, will output\nthe background brightness of each image.'
-    elif(elementID) == 'Make output images': return 'Batch mode will output\nimages with contours drawn.'
-    elif(elementID) == 'Thresh Method': return 'Absolute: Uses same brightness on all images.\nRelative: Multiplies background brightness of each image.\nDifference: Subtracts from background brighness of each image.'
-    elif(elementID) == 'AbsThr': return '[0,255] Lower values more selective.'
-    elif(elementID) == 'RelThr': return '[0,1] Lower values more selective.'
-    elif(elementID) == 'DifThr': return '[0,255] Higher values more selective.'
+    elif(elementID) == 'Spreads Only': return 'Batch mode will not count cells, will output the background\nand spread between background and cells of each image.'
+    elif(elementID) == 'Make Output Images': return 'Batch mode will output\nimages with contours drawn.'
+    elif(elementID) == 'SelStr': return 'How strongly cells must stand out from surrounding tissue.'
     elif(elementID) == 'Fluorescent': return 'Enable if analyzing fluorescent images.'
     elif(elementID) == 'Size': return 'Approximate radius, in pixels,\nof smallest cells'
-    elif(elementID) == 'Min Area Coefficient': return 'Minimum area of an outlined cell\nto pass the size filter.'
-    elif(elementID) == 'Max Area Coefficient': return 'Maximum area of an outlined cell\nto pass the size filter.'
+    elif(elementID) == 'Minimum Area': return 'Minimum area of an outlined cell\nto pass the size filter.'
+    elif(elementID) == 'Maximum Area': return 'Maximum area of an outlined cell\nto pass the size filter.'
     elif(elementID) == 'Circularity Thresh': return '[0,1) How circular an outlined cell must be\nto pass the circularity filter.'
     elif(elementID) == 'Channel Identifier': return '(Optional) Text identifier of\nchannel type in image names.'
-    elif(elementID) == 'CoexImgs': return 'Coexpression contours will\nbe drawn on output images.'
-    else: return 'NO MATCHING CASE IN TOOLTIP LIST'
+    elif(elementID) == 'CoexImgs': return 'Co-expression contours will\nbe drawn on output images.'
+    else: return 'WARNING: NO MATCHING CASE IN TOOLTIP LIST'
 
 #FILE/FOLDER BROWSE FUNCTIONS ---------------------
 def folderbrowse():
@@ -264,22 +229,21 @@ def filesbrowse(filetypes):
 #CONFIG IMPORT/EXPORT FUNCTIONS -----------------------
 def importcfg(file):
     config.read(file)
-    for k in list(values.keys())[5:18]:
+    for k in list(values.keys())[5:12]:
         v = config.get('GENERAL', k)
-        window[k].update(bool(v) if (v==True or v==False) else v)
-    return config.get('GENERAL', 'thr_meth')
+        window[k].update(True if v=='True' else False if v=='False' else v)
 
 def exportcfg(file,values_dict):
-    for k in list(values_dict.keys())[5:18]:
+    for k in list(values_dict.keys())[5:12]:
         config.set('GENERAL', k, str(values_dict[k]))
     with open(file, 'w') as configfile:
         config.write(configfile)
-
-#Element Update Functions
-def thresh_update(thrMeth):
-    window['ACOL'].update(thrMeth.startswith('A'))
-    window['RCOL'].update(thrMeth.startswith('R'))
-    window['DCOL'].update(thrMeth.startswith('D'))
+    
+def stringtobool(s):
+    if s == 'True':
+        return True
+    elif s == 'False':
+        return False
 
 ######################## MAIN CODE ########################
 
@@ -298,20 +262,14 @@ threadNr = 0
 
 mode = 'Batch'
 channel = ''
-threshOnly = False
+spreadOnly = False
 writeImgs = False
-fluorescent = True
+fluorescent = False
 size = 13
-minAreaCoeff = 0.6
-maxAreaCoeff = 12.0
+minArea = 100
+maxArea = 600
 circularityThresh = 0.8
-threshMethod = 'Relative'
-absImageThresh = 144
-absCellThresh = 134
-relImageThresh = 0.8
-relCellThresh = 0.7
-difImageThresh = 30
-difCellThresh = 40
+offset = 12
 
 #WINDOW LAYOUT DEFINITIONS
 sg.theme('Neutral Blue')
@@ -326,34 +284,22 @@ def make_baseWindow():
          sg.In(size=(27,1), visible=False, key='IMG_FILE')],
         [sg.B('Browse Folders', key='IMG_FOLD_BROWSE'),
          sg.B('Browse Images', visible=False, key='IMG_FILE_BROWSE')],
-        [sg.Checkbox('Thresholds only', default=False, enable_events=True, tooltip=tt('Thresholds only'), key='THRESH_ONLY')],
-        [sg.Checkbox('Make output images', default=False, tooltip=tt('Make output images'), key='WRITE_IMGS')],
+        [sg.Checkbox('Spreads Only', default=False, enable_events=True, tooltip=tt('Spreads Only'), key='SPREAD_ONLY')],
+        [sg.Checkbox('Make Output Images', default=False, tooltip=tt('Make Output Images'), key='WRITE_IMGS')],
         [sg.T('_'*27)],
 
-        [sg.T('Thresh Method', tooltip=tt('Thresh Method')),
-         sg.Drop(values=['Absolute','Relative','Difference'], default_value=threshMethod, size=(10,1), enable_events=True, key='THR_METH')],
-        [sg.Col([[sg.T('Image Thresh      Cell Thresh', tooltip=tt('AbsThr'))],
-                 [sg.Spin([i for i in range(0,256)], initial_value=absImageThresh, size=(6,1), key='ABS_IMG_THR'),
-                  sg.T('       '),
-                  sg.Spin([i for i in range(0,256)], initial_value=absCellThresh, size=(6,1), key='ABS_CELL_THR')]], pad=(0,0), visible=threshMethod.startswith('A'), key='ACOL'),
-         sg.Col([[sg.T('Image Thresh      Cell Thresh', tooltip=tt('RelThr'), key='REL_MODE')],
-                 [sg.Spin([i/100 for i in range(0,101)], initial_value=relImageThresh, size=(6,1), key='REL_IMG_THR'),
-                  sg.T('       '),
-                  sg.Spin([i/100 for i in range(0,101)], initial_value=relCellThresh, size=(6,1), key='REL_CELL_THR')]], pad=(0,0), visible=threshMethod.startswith('R'), key='RCOL'),
-         sg.Col([[sg.T('Image Thresh      Cell Thresh', tooltip=tt('DifThr'), key='DIF_MODE')],
-                 [sg.Spin([i for i in range(0,256)], initial_value=difImageThresh, size=(6,1), key='DIF_IMG_THR'),
-                  sg.T('       '),
-                  sg.Spin([i for i in range(0,256)], initial_value=difCellThresh, size=(6,1), key='DIF_CELL_THR')]], pad=(0,0), visible=threshMethod.startswith('D'), key='DCOL')],
+        [sg.T('Selection Strength', tooltip=tt('SelStr'), key='SEL_STR'),
+         sg.Spin([i/10 for i in range(0,501)], initial_value=offset, size=(6,1), key='OFFSET')],
         [sg.T('', size=(None,1))]]
 
     second_col = [
         [sg.Checkbox('Fluorescent', default=fluorescent, tooltip=tt('Fluorescent'), key='FLUO')],
         [sg.T('Size', tooltip=tt('Size')),
-         sg.Spin([i for i in range(1,100)], initial_value=size, size=(6,1), key='SIZE')],
-        [sg.T('Min Area Coefficient', tooltip=tt('Min Area Coefficient')),
-         sg.Spin([i/100 for i in range(0,4000)], initial_value=minAreaCoeff, size=(6,1), key='MIN_A_COEFF')],
-        [sg.T('Max Area Coefficient', tooltip=tt('Max Area Coefficient')),
-         sg.Spin([i/100 for i in range(0,5000)], initial_value=maxAreaCoeff, size=(6,1), key='MAX_A_COEFF')],
+         sg.Spin([i for i in range(1,101)], initial_value=size, size=(6,1), key='SIZE')],
+        [sg.T('Minimum Area', tooltip=tt('Minimum Area')),
+         sg.Spin([i for i in range(0,4001)], initial_value=minArea, size=(6,1), key='MIN_AREA')],
+        [sg.T('Maximum Area', tooltip=tt('Maximum Area')),
+         sg.Spin([i for i in range(0,10001)], initial_value=maxArea, size=(6,1), key='MAX_AREA')],
         [sg.T('Circularity Thresh', tooltip=tt('Circularity Thresh')),
          sg.Spin([i/100 for i in range(0,101)], initial_value=circularityThresh, size=(6,1), key='CIRCLE_THR')],
         [sg.T('_'*33)],
@@ -366,13 +312,13 @@ def make_baseWindow():
         [sg.B('Select Contour Files', key='CON_FILES_BROWSE')],
         [sg.Multiline(visible=False, key='CON_FILES'),
          sg.Multiline(size=(55,5), disabled=True, key='CON_FILES_DISPLAY')],
-        [sg.Checkbox('Add contours to output images', default=False, tooltip=tt('CoexImgs'), key='COEX_IMGS')],
+        [sg.Checkbox('Add Contours to Output Images', default=False, tooltip=tt('CoexImgs'), key='COEX_IMGS')],
         [sg.B('Run', button_color=('#000000','#00BBBB'), key='RUN_COEX')]]
 
     tab1 = [[sg.Column(first_col), sg.VSeparator(), sg.Column(second_col)]]
     tab2 = [[sg.Column(third_col)]]
 
-    layout = [[sg.TabGroup([[sg.Tab('General', tab1), sg.Tab('Coexpression', tab2)]])]]
+    layout = [[sg.TabGroup([[sg.Tab('General', tab1), sg.Tab('Co-expression', tab2)]])]]
 
     return sg.Window('SimpylCellCounter', layout, scaling=1.5, resizable=True, finalize=True)
 
@@ -388,7 +334,7 @@ while True:
     elif event == 'Import':
         cfgFile = filebrowse(filetypes=(('Config files', '*.ini'),))
         if cfgFile:
-            thresh_update(importcfg(cfgFile))
+            importcfg(cfgFile)
             sg.cprint('Config Imported!')
 
     elif event == 'Export':
@@ -405,8 +351,8 @@ while True:
         window['IMG_FILE'].update(visible=False)
         window['IMG_FOLD_BROWSE'].update(visible=True)
         window['IMG_FILE_BROWSE'].update(visible=False)
-        window['THRESH_ONLY'].update(disabled=False)
-        if not values['THRESH_ONLY']:
+        window['SPREAD_ONLY'].update(disabled=False)
+        if not values['SPREAD_ONLY']:
             window['WRITE_IMGS'].update(disabled=False)
 
     elif event == 'PREVIEW_MODE':
@@ -417,7 +363,7 @@ while True:
         window['IMG_FILE'].update(visible=True)
         window['IMG_FOLD_BROWSE'].update(visible=False)
         window['IMG_FILE_BROWSE'].update(visible=True)
-        window['THRESH_ONLY'].update(disabled=True)
+        window['SPREAD_ONLY'].update(disabled=True)
         window['WRITE_IMGS'].update(disabled=True)
     
     elif event == 'IMG_FOLD_BROWSE':
@@ -426,13 +372,10 @@ while True:
     elif event == 'IMG_FILE_BROWSE':
         window['IMG_FILE'].update(filebrowse(filetypes = (('Image Files', '*.jpg *jpeg *.png *.tif *.tiff'),)))
 
-    elif event == 'THR_METH':
-        thresh_update(values['THR_METH'])
-
-    elif event == 'THRESH_ONLY':
-        if values['THRESH_ONLY']:
+    elif event == 'SPREAD_ONLY':
+        if values['SPREAD_ONLY']:
             window['WRITE_IMGS'].update(disabled=True)
-        elif not values['THRESH_ONLY']:
+        elif not values['SPREAD_ONLY']:
             window['WRITE_IMGS'].update(disabled=False)
 
     elif event == 'RUN_SCC':
@@ -463,26 +406,20 @@ while True:
                                                saveFile,
                                                imFiles,
                                                mode,
-                                               values['THRESH_ONLY'],
+                                               values['SPREAD_ONLY'],
                                                values['WRITE_IMGS'],
                                                values['FLUO'],
                                                int(values['SIZE']),
-                                               float(values['MIN_A_COEFF']),
-                                               float(values['MAX_A_COEFF']),
+                                               float(values['MIN_AREA']),
+                                               float(values['MAX_AREA']),
                                                float(values['CIRCLE_THR']),
-                                               values['THR_METH'],
-                                               int(values['ABS_IMG_THR']),
-                                               int(values['ABS_CELL_THR']),
-                                               float(values['REL_IMG_THR']),
-                                               float(values['REL_CELL_THR']),
-                                               int(values['DIF_IMG_THR']),
-                                               int(values['DIF_CELL_THR']),
+                                               float(values['OFFSET']),
                                                values['CH_ID']),
                              daemon=True).start()
 
     elif event == 'PREVIEW_RETURN':
         fig = plt.figure(figsize=(32, 24))
-        labels = ['Original','Original, grayscale','After image threshold','After gap filling','After size filtering','Final']
+        labels = ['Source','Truncated','After threshold','After gap filling','After size filtering','Final']
         for i, im in enumerate(labels):
             fig.add_subplot(2, 3, i+1)
             plt.imshow(cv2.cvtColor(values['PREVIEW_RETURN'][i], cv2.COLOR_RGB2BGR), cmap='gray')
