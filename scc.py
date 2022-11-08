@@ -1,3 +1,5 @@
+version = '2.1.0'
+
 from math import pi
 from imghdr import what
 import os
@@ -246,6 +248,8 @@ def stringtobool(s):
         return False
 
 ######################## MAIN CODE ########################
+
+print('\n--- SCC v' + version + ' ---\n',flush=True)
 
 config = ConfigParser()
 config.add_section('GENERAL')
