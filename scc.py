@@ -100,7 +100,7 @@ def scc(window,threadNr,saveFile,imFiles,mode,spreadOnly,writeImgs,fluorescent,s
                 outputImg = '_$$$.'.join(baseImage.rsplit('.',1))
                 cv2.imwrite(outputImg, images[5])
             if channel:
-                concsv.append(np.array(contours[3]))
+                concsv.append(np.array(contours[2]))
         
     if mode == 'Batch':
         #csv Generation
