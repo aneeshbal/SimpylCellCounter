@@ -1,3 +1,5 @@
+version = '2.1.0'
+
 from math import pi
 from imghdr import what
 import os
@@ -55,7 +57,7 @@ def scc(window,threadNr,saveFile,imFiles,mode,spreadOnly,writeImgs,fluorescent,s
         #Apply adaptive threshold to image and lightly blur to supress noise
         images[2] = cv2.medianBlur(cv2.adaptiveThreshold(images[1], 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, threshKernel, offset), 5)
         
-        #Assess background brightness
+        #Assess cell brightness vs background brightness (spread)
         ptOtsu = cv2.threshold(images[1], 0, 255, cv2.THRESH_OTSU)[0]
         
         #Record background and offset used
@@ -247,6 +249,8 @@ def stringtobool(s):
 
 ######################## MAIN CODE ########################
 
+print('\n--- SCC v' + version + ' ---\n',flush=True)
+
 config = ConfigParser()
 config.add_section('GENERAL')
 
@@ -269,7 +273,7 @@ size = 13
 minArea = 100
 maxArea = 600
 circularityThresh = 0.8
-offset = 12
+offset = 12.0
 
 #WINDOW LAYOUT DEFINITIONS
 sg.theme('Neutral Blue')
