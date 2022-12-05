@@ -41,7 +41,7 @@ def scc(window,threadNr,saveFile,imFiles,mode,spreadOnly,writeImgs,fluorescent,s
     #Iterate over images
     for baseImage in imgsToProcess:
         images = [0,0,0,0,0,0]			#The object used to store the image at each stage of transformation
-        contours = [[],[],[],[]]		#The object used to store the list of contours after each stage of filtering
+        contours = [[],[],[]]		    #The object used to store the list of contours after each stage of filtering
         
         #Transform image
         images[5] = cv2.imread(baseImage)
